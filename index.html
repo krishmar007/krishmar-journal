@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Krishmar Trading Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════ AUTH OVERLAY ═══════════════ -->
+<div id="authOverlay">
+  <div class="auth-box">
+    <div class="auth-title">KRISH<span>MAR</span></div>
+    <div class="auth-sub">Trading Journal Authentication</div>
+    <input type="email" id="authEmail" class="auth-inp" placeholder="Email Address" autocomplete="email">
+    <input type="password" id="authPass" class="auth-inp" placeholder="Password" autocomplete="current-password">
+    <div class="auth-err" id="authErr"></div>
+    <button class="auth-btn" id="btnLogin" onclick="loginUser()">Log In</button>
+  </div>
+</div>
+
+<div id="mainApp" style="display:none">
+
+<div class="hdr">
+  <div>
+    <div class="logo">KRISH<span>MAR</span></div>
+    <div style="font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:1px">TRADING JOURNAL · NIFTY 50 · 5M · NSE</div>
+  </div>
+  <div class="nav-tabs">
+    <button class="tab active" onclick="goPage('checklist',this)">📋 CHECKLIST</button>
+    <button class="tab" onclick="goPage('entry',this)">✏️ ENTRY</button>
+    <button class="tab" onclick="goPage('trades',this)">📂 ALL TRADES</button>
+    <button class="tab" onclick="goPage('stats',this)">📊 STATISTICS</button>
+    <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()">☀️ LIGHT</button>
+    <button class="theme-btn" onclick="logoutUser()" style="color:var(--red);border:1px solid rgba(255,59,92,0.2);">🚪 LOGOUT</button>
+  </div>
+  <div class="clk"><div class="t" id="clk">--:--:--</div><div class="d" id="dstr">---</div></div>
+</div>
+
+<div class="stats">
+  <div class="sc"><span class="sv cb" id="s-tot">0</span><div class="sl">Total</div></div>
+  <div class="sc"><span class="sv cg" id="s-win">0</span><div class="sl">Wins</div></div>
+  <div class="sc"><span class="sv cr" id="s-los">0</span><div class="sl">Losses</div></div>
+  <div class="sc"><span class="sv cy" id="s-wr">0%</span><div class="sl">Win Rate</div></div>
+  <div class="sc"><span class="sv cg" id="s-pnl">+0</span><div class="sl">Net P&L</div></div>
+  <div class="sc"><span class="sv co" id="s-tod">0/2</span><div class="sl">Today</div></div>
+</div>
+
+<div class="sig wait" id="sigBox" style="display:flex">
+  <div class="sdot"></div><span id="sigTxt">Complete checklist to evaluate signal</span>
+</div>
+
+<div class="edit-bar" id="editBar">
+  ✏️ EDITING TRADE <strong id="editNo">—</strong>
+  <button onclick="cancelEdit()">✕ Cancel</button>
+</div>
+
+<!-- ═══════════════ PAGE 1: CHECKLIST ═══════════════ -->
+<div class="page active" id="page-checklist">
+<div class="ck-grid">
+
+  <div>
+    <div class="pnl">
+      <div class="ptitle"><div class="ptdot" style="background:var(--yellow)"></div>PRE-MARKET KEY CHECK</div>
+      <div class="sec">📋 BEFORE 9:15 AM</div>
+      <div class="ck" id="ck-gapup" onclick="tog('gapup')"><div class="ck-num">01</div><div class="ck-order" id="ord-gapup">—</div><span class="ck-lbl">GAP UP — Open above PDH</span><span class="ck-time" id="tim-gapup">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'gap','UP')">YES</button><button class="opt" onclick="pk(event,'gap','NO')">NO</button></div></div>
+      <div class="ck" id="ck-gapdn" onclick="tog('gapdn')"><div class="ck-num">02</div><div class="ck-order" id="ord-gapdn">—</div><span class="ck-lbl">GAP DOWN — Open below PDL</span><span class="ck-time" id="tim-gapdn">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'gapd','YES')">YES</button><button class="opt" onclick="pk(event,'gapd','NO')">NO</button></div></div>
+      <div class="ck" id="ck-pdc" onclick="tog('pdc')"><div class="ck-num">03</div><div class="ck-order" id="ord-pdc">—</div><span class="ck-lbl">PDC Level</span><span class="ck-time" id="tim-pdc">--:--</span><div class="opts"><input class="opt fi" id="pdc-val" type="number" placeholder="25000" style="width:68px;font-size:10px" onclick="event.stopPropagation()"></div></div>
+      <div class="ck" id="ck-pdsp" onclick="tog('pdsp')"><div class="ck-num">04</div><div class="ck-order" id="ord-pdsp">—</div><span class="ck-lbl">PD SP CROSS — ST crossed</span><span class="ck-time" id="tim-pdsp">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'pdsp','BULL')">BULL</button><button class="opt" onclick="pk(event,'pdsp','BEAR')">BEAR</button></div></div>
+    </div>
+    <div class="pnl">
+      <div class="ptitle"><div class="ptdot" style="background:var(--yellow)"></div>DISCIPLINE SCORE</div>
+      <div class="disc-grid">
+        <div class="disc-item"><label>Pre-market check</label><div class="stars" id="d1"></div></div>
+        <div class="disc-item"><label>Key level filter</label><div class="stars" id="d2"></div></div>
+        <div class="disc-item"><label>Waited confirm</label><div class="stars" id="d3"></div></div>
+        <div class="disc-item"><label>Max trade limit</label><div class="stars" id="d4"></div></div>
+        <div class="disc-item"><label>Stop at 2:30 PM</label><div class="stars" id="d5"></div></div>
+        <div class="disc-item"><label>Screenshot saved</label><div class="stars" id="d6"></div></div>
+      </div>
+      <div style="margin-top:8px;text-align:center"><span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted)">SCORE: </span><span style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;color:var(--yellow)" id="dtot">0/30</span></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="pnl">
+      <div class="ptitle"><div class="ptdot" style="background:var(--red)"></div>LIVE MARKET CHECKLIST<span style="margin-left:auto;font-size:9px;color:var(--muted)">ORDER &amp; TIME TRACKED</span><button class="ck-reset" onclick="resetLiveChecks()">↺ RESET</button></div>
+      <div class="sec">⚡ INTRADAY — SEQUENCE &amp; TIME RECORDED</div>
+      <div class="timeline" id="timeline"><div class="tl-title">📍 SEQUENCE TIMELINE</div><div id="tl-items"></div></div>
+      <div class="lmck-grid">
+
+        <!-- COL 1: KEY LEVELS -->
+        <div>
+          <div class="lmck-col-title">📌 Key Levels</div>
+          <div class="ck" id="ck-pdh" onclick="tog('pdh')"><div class="ck-order" id="ord-pdh"></div><span class="ck-lbl">PDH</span><span class="ck-time" id="tim-pdh">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'pdh','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'pdh','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'pdh','TAP')">TAP</button></div></div>
+          <div class="ck" id="ck-pdl" onclick="tog('pdl')"><div class="ck-order" id="ord-pdl"></div><span class="ck-lbl">PDL</span><span class="ck-time" id="tim-pdl">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'pdl','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'pdl','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'pdl','TAP')">TAP</button></div></div>
+          <div class="ck" id="ck-pdob" onclick="tog('pdob')"><div class="ck-order" id="ord-pdob"></div><span class="ck-lbl">PD OB</span><span class="ck-time" id="tim-pdob">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'pdob','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'pdob','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'pdob','TAP')">TAP</button></div></div>
+          <div class="ck" id="ck-wkh" onclick="tog('wkh')"><div class="ck-order" id="ord-wkh"></div><span class="ck-lbl">WEEK HIGH</span><span class="ck-time" id="tim-wkh">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'wkh','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'wkh','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'wkh','TAP')">TAP</button></div></div>
+          <div class="ck" id="ck-wkl" onclick="tog('wkl')"><div class="ck-order" id="ord-wkl"></div><span class="ck-lbl">WEEK LOW</span><span class="ck-time" id="tim-wkl">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'wkl','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'wkl','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'wkl','TAP')">TAP</button></div></div>
+          <div class="ck" id="ck-dyh" onclick="tog('dyh')"><div class="ck-order" id="ord-dyh"></div><span class="ck-lbl">DAY HIGH</span><span class="ck-time" id="tim-dyh">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'dyh','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'dyh','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'dyh','TAP')">TAP</button></div></div>
+          <div class="ck" id="ck-dyl" onclick="tog('dyl')"><div class="ck-order" id="ord-dyl"></div><span class="ck-lbl">DAY LOW</span><span class="ck-time" id="tim-dyl">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'dyl','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'dyl','BREAK')">BREAK</button><button class="opt" onclick="pk(event,'dyl','TAP')">TAP</button></div></div>
+        </div>
+
+        <!-- COL 2: INDICATOR SIGNALS -->
+        <div>
+          <div class="lmck-col-title">⚡ Indicator Signals</div>
+          <div class="ck" id="ck-spcross" onclick="tog('spcross')"><div class="ck-order" id="ord-spcross"></div><span class="ck-lbl">SP CROSS</span><span class="ck-time" id="tim-spcross">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'spc','BULL')">BULL</button><button class="opt" onclick="pk(event,'spc','BEAR')">BEAR</button></div></div>
+          <div class="ck" id="ck-flcross" onclick="tog('flcross')"><div class="ck-order" id="ord-flcross"></div><span class="ck-lbl">FL CROSS</span><span class="ck-time" id="tim-flcross">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'flc','BULL')">BULL</button><button class="opt" onclick="pk(event,'flc','BEAR')">BEAR</button></div></div>
+          <div class="ck" id="ck-spsw" onclick="tog('spsw')"><div class="ck-order" id="ord-spsw"></div><span class="ck-lbl">SP SWEEP</span><span class="ck-time" id="tim-spsw">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'spsw','YES')">YES</button><button class="opt" onclick="pk(event,'spsw','NO')">NO</button></div></div>
+          <div class="ck" id="ck-flsw" onclick="tog('flsw')"><div class="ck-order" id="ord-flsw"></div><span class="ck-lbl">FL SWEEP / BRK</span><span class="ck-time" id="tim-flsw">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'flsw','SWEEP')">SWEEP</button><button class="opt" onclick="pk(event,'flsw','BREAK')">BREAK</button></div></div>
+        </div>
+
+        <!-- COL 3: STRUCTURE -->
+        <div>
+          <div class="lmck-col-title">🏗️ Market Structure</div>
+          <div class="ck" id="ck-choch" onclick="tog('choch')"><div class="ck-order" id="ord-choch"></div><span class="ck-lbl">CHOCH</span><span class="ck-time" id="tim-choch">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'choch','BULL')">BULL</button><button class="opt" onclick="pk(event,'choch','BEAR')">BEAR</button></div></div>
+          <div class="ck" id="ck-bos" onclick="tog('bos')"><div class="ck-order" id="ord-bos"></div><span class="ck-lbl">BOS</span><span class="ck-time" id="tim-bos">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'bos','BULL')">BULL</button><button class="opt" onclick="pk(event,'bos','BEAR')">BEAR</button></div></div>
+          <div class="ck" id="ck-chochtap" onclick="tog('chochtap')"><div class="ck-order" id="ord-chochtap"></div><span class="ck-lbl">CHOCH OB TAP</span><span class="ck-time" id="tim-chochtap">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'chobt','YES')">YES</button><button class="opt" onclick="pk(event,'chobt','NO')">NO</button></div></div>
+          <div class="ck" id="ck-bostap" onclick="tog('bostap')"><div class="ck-order" id="ord-bostap"></div><span class="ck-lbl">BOS OB TAP</span><span class="ck-time" id="tim-bostap">--:--</span><div class="opts"><button class="opt" onclick="pk(event,'bobt','YES')">YES</button><button class="opt" onclick="pk(event,'bobt','NO')">NO</button></div></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+<button class="proceed-btn" id="proceed-btn" onclick="proceedToEntry()" disabled>⏳ WAITING — Complete SP Cross + FL Cross + Sweep + Structure</button>
+</div>
+
+<!-- ═══════════════ PAGE 2: ENTRY ═══════════════ -->
+<div class="page" id="page-entry">
+<div class="entry-grid">
+  <div>
+    <div class="pnl">
+      <div class="ptitle"><div class="ptdot" style="background:var(--green)"></div>TRADE DETAILS</div>
+      <div class="frow"><label>Trade #</label><input class="fi" id="f-no" type="text" placeholder="001" style="max-width:55px"><label style="margin-left:8px">Date</label><input class="fi" id="f-date" type="date"><label style="margin-left:8px">Time</label><input class="fi" id="f-time" type="time"></div>
+      <div style="padding:0 9px"><div style="font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px">DIRECTION</div><div class="drow"><button class="dbtn" id="d-buy" onclick="setDir('BUY')">▲ BUY</button><button class="dbtn" id="d-sell" onclick="setDir('SELL')">▼ SELL</button></div></div>
+      <div style="padding:0 9px;margin:6px 0"><div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px">ENTRY PATTERN</div><div style="display:flex;gap:5px"><button class="opt" onclick="setPat('P1')" id="pt-P1" style="padding:4px 12px;font-size:10px">P1 — FL Pullback</button><button class="opt" onclick="setPat('P2')" id="pt-P2" style="padding:4px 12px;font-size:10px">P2 — Explosive</button><button class="opt" onclick="setPat('P3')" id="pt-P3" style="padding:4px 12px;font-size:10px">P3 — FL Sweep</button></div></div>
+      <div style="padding:0 9px;margin:4px 0;display:flex;align-items:center;gap:8px"><div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace">TRADE #</div><button class="opt" onclick="setTN('1ST')" id="tn-1ST" style="padding:3px 10px">1st Entry</button><button class="opt" onclick="setTN('2ND')" id="tn-2ND" style="padding:3px 10px">2nd Re-entry</button></div>
+      <div class="sep"></div>
+      <div class="sec" style="margin:6px 0 4px">📊 INDEX DATA</div>
+      <div class="frow"><label>Entry</label><input class="fi" id="f-idx-entry" type="number" placeholder="24750" oninput="calcIdxRR()"><label style="margin-left:8px">SL</label><input class="fi" id="f-idx-sl" type="number" placeholder="24700" oninput="calcIdxRR()"><label style="margin-left:8px">Target</label><input class="fi" id="f-idx-tl" type="number" placeholder="24900" oninput="calcIdxRR()"></div>
+      <div class="frow"><label>Idx R:R</label><input class="fi" id="f-idx-rr" type="text" readonly style="color:var(--teal);max-width:60px"><span class="fsuf cr" id="f-idx-risk">—</span><span class="fsuf cg" id="f-idx-rew">—</span><label style="margin-left:8px">Idx P&amp;L</label><input class="fi" id="f-idx-pnl" type="text" readonly style="max-width:80px;font-weight:700"></div>
+      <div style="padding:0 9px;margin:5px 0"><div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px">IDX RESULT</div><div class="rrow"><button class="rbtn" id="ir-tl" onclick="setIdxRes('TL')">🎯 TL HIT</button><button class="rbtn" id="ir-sl" onclick="setIdxRes('SL')">❌ SL HIT</button><button class="rbtn" id="ir-eod" onclick="setIdxRes('EOD')">🔔 EOD</button></div></div>
+      <div class="frow"><label>EOD Exit</label><input class="fi" id="f-idx-eod" type="number" placeholder="exit price" oninput="calcIdxRR()"></div>
+      <input type="hidden" id="f-entry">
+      <div class="sec" style="margin:8px 0 4px">🎯 OPTION DATA</div>
+      <div class="frow">
+        <label>Strike Type</label>
+        <div style="display:flex;gap:4px">
+          <button class="opt" id="opt-ce" onclick="setOptType('CE')" style="padding:4px 10px;font-size:11px">CE</button>
+          <button class="opt" id="opt-pe" onclick="setOptType('PE')" style="padding:4px 10px;font-size:11px">PE</button>
+        </div>
+        <label style="margin-left:8px">Strike Value</label><input class="fi" id="f-strike" type="number" placeholder="24800" style="max-width:80px">
+      </div>
+      <div class="frow"><label>Qty (Lots)</label><input class="fi" id="f-qty" type="number" placeholder="1" min="1" style="max-width:52px" oninput="calcRR()"><span class="fsuf" id="f-qty-pts" style="color:var(--muted)">= 65 qty</span></div>
+      <div class="frow"><label>Entry Price</label><input class="fi" id="f-prem-entry" type="number" placeholder="120.00" step="0.05" oninput="calcRR()"><label style="margin-left:8px">SL Price</label><input class="fi" id="f-sl" type="number" placeholder="90.00" step="0.05" oninput="calcRR()"><label style="margin-left:8px">Target</label><input class="fi" id="f-tp" type="number" placeholder="200.00" step="0.05" oninput="calcRR()"></div>
+      <div class="frow"><label>Opt R:R</label><input class="fi" id="f-rr" type="text" readonly style="color:var(--teal);max-width:60px"><span class="fsuf cr" id="f-risk">—</span><span class="fsuf cg" id="f-rew">—</span><label style="margin-left:8px">Prem Exit</label><input class="fi" id="f-prem-exit" type="number" placeholder="—" step="0.05" oninput="calcPnL()"></div>
+      <div class="frow"><label>P&amp;L ₹</label><input class="fi" id="f-pnl" type="text" readonly style="max-width:110px;font-weight:700"></div>
+      <div style="padding:0 9px;margin:5px 0"><div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px">OPT RESULT</div><div class="rrow"><button class="rbtn" id="r-tp" onclick="setRes('TP')">✅ TP HIT</button><button class="rbtn" id="r-sl" onclick="setRes('SL')">❌ SL HIT</button><button class="rbtn" id="r-eod" onclick="setRes('EOD')">🔔 EOD</button></div></div>
+      <div class="frow"><label>Exit Time</label><input class="fi" id="f-exit" type="time"></div>
+      <div class="prog"><div class="prg-top"><span>Checklist progress</span><span id="prg-txt">0 / 21</span></div><div class="prg-bar"><div class="prg-fill" id="prg-fill" style="width:0%"></div></div></div>
+      <div style="padding:0 9px;margin-top:8px"><div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:6px">🧠 PSYCHOLOGY</div><div style="display:flex;gap:5px;flex-wrap:wrap"><button class="opt" id="psy-0" onclick="togglePsy(0)">✅ Followed Plan</button><button class="opt" id="psy-1" onclick="togglePsy(1)">⚡ FOMO Entry</button><button class="opt" id="psy-2" onclick="togglePsy(2)">😤 Revenge Trade</button><button class="opt" id="psy-3" onclick="togglePsy(3)">🧘 Patient</button></div></div>
+      <div style="padding:0 9px;margin-top:8px"><div style="font-size:9px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;font-family:'JetBrains Mono',monospace;margin-bottom:4px">NOTES</div><textarea class="notes" id="f-notes" placeholder="What you saw, why you took this trade..."></textarea></div>
+      <div class="brow">
+        <button class="btn-back" onclick="goToChecklist()">← BACK</button>
+        <button class="btn btn-save" id="btn-save" onclick="saveTrade()">➕ CREATE</button>
+        <button class="btn btn-upd" id="btn-upd" onclick="updateTrade()" style="display:none">✏️ UPDATE</button>
+        <button class="btn btn-new" onclick="newTrade()">🔄</button>
+        <button class="btn btn-clr" onclick="clearAll()">✖</button>
+      </div>
+    </div>
+  </div>
+  <div>
+    <div class="chart-area" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <!-- INDEX CHART -->
+      <div>
+        <div class="chart-hdr"><div class="chart-tit">📊 INDEX CHART</div><div style="display:flex;align-items:center;gap:7px"><span style="font-size:9px;color:var(--muted)">Paste Ctrl+V · Drag · Upload</span><input type="file" id="cf-idx" accept="image/*" style="display:none" onchange="loadChart(event,'idx')"><button class="upbtn" onclick="document.getElementById('cf-idx').click()">Upload</button><button class="upbtn" onclick="clearChart('idx')" style="color:var(--red)">Clear</button></div></div>
+        <div class="chart-body" id="chart-body-idx" ondrop="dropChart(event,'idx')" ondragover="event.preventDefault()" onclick="document.getElementById('cf-idx').click()" style="cursor:pointer"><img id="chart-img-idx" class="chart-img-el" style="display:none"><div class="chart-ph" id="chart-ph-idx"><svg width="36" height="36" viewBox="0 0 42 42" fill="none" opacity="0.25"><rect x="3" y="29" width="6" height="10" fill="#3b8eea" rx="1"/><rect x="13" y="17" width="6" height="22" fill="#00d97e" rx="1"/><rect x="23" y="23" width="6" height="16" fill="#ff3b5c" rx="1"/><rect x="33" y="11" width="6" height="28" fill="#00d97e" rx="1"/><polyline points="6,25 16,13 26,19 36,7" stroke="#ffd600" stroke-width="2" fill="none"/></svg><p style="font-size:10px">Index Chart</p></div></div>
+      </div>
+      <!-- STRIKE CHART -->
+      <div>
+        <div class="chart-hdr"><div class="chart-tit">🎯 STRIKE CHART</div><div style="display:flex;align-items:center;gap:7px"><span style="font-size:9px;color:var(--muted)">Paste Ctrl+Shift+V · Drag · Upload</span><input type="file" id="cf-str" accept="image/*" style="display:none" onchange="loadChart(event,'str')"><button class="upbtn" onclick="document.getElementById('cf-str').click()">Upload</button><button class="upbtn" onclick="clearChart('str')" style="color:var(--red)">Clear</button></div></div>
+        <div class="chart-body" id="chart-body-str" ondrop="dropChart(event,'str')" ondragover="event.preventDefault()" onclick="document.getElementById('cf-str').click()" style="cursor:pointer"><img id="chart-img-str" class="chart-img-el" style="display:none"><div class="chart-ph" id="chart-ph-str"><svg width="36" height="36" viewBox="0 0 42 42" fill="none" opacity="0.25"><rect x="3" y="29" width="6" height="10" fill="#ffd600" rx="1"/><rect x="13" y="17" width="6" height="22" fill="#ffd600" rx="1"/><rect x="23" y="23" width="6" height="16" fill="#ff3b5c" rx="1"/><rect x="33" y="11" width="6" height="28" fill="#00d97e" rx="1"/><polyline points="6,25 16,13 26,19 36,7" stroke="#3b8eea" stroke-width="2" fill="none"/></svg><p style="font-size:10px">Strike Chart</p></div></div>
+      </div>
+    </div>
+    <div class="pnl">
+      <div class="ptitle"><div class="ptdot" style="background:var(--teal)"></div>CHECKLIST SUMMARY<span style="margin-left:auto"><button class="ck-reset" onclick="goToChecklist()" style="color:var(--teal);border-color:rgba(0,200,184,.3)">✏️ Edit Checklist</button></span></div>
+      <div id="ck-summary" style="font-size:11px;color:var(--muted)">Complete the checklist first.</div>
+      <div style="margin-top:10px" id="entry-timeline"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ═══════════════ PAGE 3: ALL TRADES ═══════════════ -->
+<div class="page" id="page-trades">
+  <div class="pnl">
+    <div class="ptitle"><div class="ptdot" style="background:var(--blue)"></div>ALL TRADES — JOURNAL</div>
+    <div class="filters">
+      <label>Filter:</label>
+      <select class="fsel" id="flt-dir" onchange="renderTable()"><option value="">All Dirs</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+      <select class="fsel" id="flt-res" onchange="renderTable()"><option value="">All Results</option><option value="TP">TP</option><option value="SL">SL</option><option value="EOD">EOD</option></select>
+      <select class="fsel" id="flt-pat" onchange="renderTable()"><option value="">All Patterns</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select>
+      <input class="search" id="flt-src" type="text" placeholder="Search date, strike, notes..." oninput="renderTable()">
+      <button class="upbtn" id="btn-view-toggle" onclick="toggleViewMode()" style="margin-right:auto;border-color:var(--blue);color:var(--blue);background:rgba(74,140,219,.05)">⊞ Grid</button>
+
+    </div>
+    <div id="tlog" style="display:grid;gap:10px;margin-top:10px"></div>
+    <div style="margin-top:7px;font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace" id="tbl-cnt">0 trades</div>
+  </div>
+</div>
+
+<!-- ═══════════════ PAGE 4: STATISTICS ═══════════════ -->
+<div class="page" id="page-stats">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+    <div class="pnl"><div class="ptitle"><div class="ptdot" style="background:var(--green)"></div>OVERALL</div><div id="st-ov"></div></div>
+    <div class="pnl"><div class="ptitle"><div class="ptdot" style="background:var(--blue)"></div>PATTERN</div><div id="st-pt"></div></div>
+    <div class="pnl"><div class="ptitle"><div class="ptdot" style="background:var(--orange)"></div>DIRECTION</div><div id="st-di"></div></div>
+    <div class="pnl"><div class="ptitle"><div class="ptdot" style="background:var(--teal)"></div>MONTHLY</div><div id="st-mo"></div></div>
+    <div class="pnl"><div class="ptitle"><div class="ptdot" style="background:var(--green)"></div>BEST 5</div><div id="st-be"></div></div>
+    <div class="pnl"><div class="ptitle"><div class="ptdot" style="background:var(--red)"></div>WORST 5</div><div id="st-wo"></div></div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-bg" id="viewModal"><div class="modal"><button class="close" onclick="closeM('viewModal')">✕</button><h2 id="m-title">Trade Details</h2><div id="m-body"></div></div></div>
+<div class="modal-bg" id="delModal"><div class="modal" style="max-width:380px"><h2>🗑 Delete Trade?</h2><p style="font-size:13px;color:var(--muted);margin:12px 0">Trade <strong id="del-no" style="color:var(--white)"></strong> will be permanently deleted.</p><div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-del" onclick="confirmDel()" style="flex:1">DELETE</button><button class="btn btn-clr" onclick="closeM('delModal')" style="flex:1">CANCEL</button></div></div></div>
+
+</div> <!-- END mainApp -->
+
+<script src="script.js"></script>
+</body>
+</html>
