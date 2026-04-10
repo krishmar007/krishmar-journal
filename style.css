@@ -1135,3 +1135,11 @@ input[type=number]::-webkit-outer-spin-button { opacity: 0.4; }
 .custom-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.1); border-radius: 10px; }
 .custom-scroll:hover::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.25); }
 
+/* Toast Notification */
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast { background: var(--panel); border: 1px solid var(--border); border-left: 4px solid var(--accent); color: var(--text); padding: 12px 20px; border-radius: 8px; box-shadow: var(--shadow-md); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; animation: toast-in 0.3s ease forwards, toast-out 0.3s ease forwards 3s; pointer-events: auto; }
+.toast.success { border-left-color: var(--green); }
+.toast.error { border-left-color: var(--red); }
+@keyframes toast-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes toast-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+

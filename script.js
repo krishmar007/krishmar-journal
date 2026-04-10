@@ -4,6 +4,13 @@ let globalSeq=0;  // unified sequence counter for all live items
 let dir=null,res=null,pat=null,tn=null,idxRes=null,optType=null;
 let discSc=[0,0,0,0,0,0];
 let trades=[];
+function sortTrades() {
+  trades.sort((a,b) => {
+    const da = (a.date || '') + (a.time || '');
+    const db = (b.date || '') + (b.time || '');
+    return db.localeCompare(da);
+  });
+}
 let viewMode = localStorage.getItem('kj4-view') || 'grid';
 
 function toggleViewMode() {
@@ -52,6 +59,7 @@ function loadUserTrades() {
   getTradesRef().get().then((qs) => {
     trades = [];
     qs.forEach((doc) => { let t = doc.data(); t.id = doc.id; trades.push(t); });
+    sortTrades();
     updateStats();
     if(document.getElementById('page-trades') && document.getElementById('page-trades').classList.contains('active')) renderTable();
   }).catch(e => console.log("Firestore error:", e));
@@ -138,6 +146,8 @@ function updateProceedBtn(){
   btn.textContent=ok?'✅ READY — PROCEED TO ENTRY ➜':'⏳ WAITING — Need SP Cross + FL Cross + Sweep + Structure';
 }
 
+function showToast(m,t='success'){const c=document.getElementById('toast-container');if(!c)return;const el=document.createElement('div');el.className=`toast ${t}`;el.textContent=m;c.appendChild(el);setTimeout(()=>el.remove(),3500);}
+
 function tick(){
   const n=new Date();
   document.getElementById('clk').textContent=n.toLocaleTimeString('en-IN',{hour12:false});
@@ -168,7 +178,7 @@ function tog(k, fromButton = false){
       ckState[k]=false;
       if(isLive){const ro=ckOrder[k];delete ckTimes[k];delete ckOrder[k];Object.keys(ckOrder).forEach(key=>{if(ckOrder[key]>ro)ckOrder[key]--;});globalSeq=Object.values(ckOrder).length?Math.max(...Object.values(ckOrder)):0;}
       document.getElementById('ck-'+k)?.classList.remove('on');
-      document.getElementById('ord-'+k).textContent='';
+      document.getElementById('ord-'+k).textContent='—';
       document.getElementById('tim-'+k).textContent='--:--';
     } else {
       ckState[k]=true;
@@ -259,8 +269,8 @@ function reorderTl(dragSeq, tgtSeq, after) {
     if(after) idx++;
     seqs.splice(idx, 0, dragSeq);
   }
-  Object.keys(ckOrder).forEach(k => { ckOrder[k] = seqs.length - seqs.indexOf(ckOrder[k]); });
-  multiLog.forEach(m => { m.seqNo = seqs.length - seqs.indexOf(m.seqNo); });
+  Object.keys(ckOrder).forEach(k => { ckOrder[k] = seqs.indexOf(ckOrder[k]) + 1; });
+  multiLog.forEach(m => { m.seqNo = seqs.indexOf(m.seqNo) + 1; });
   globalSeq = seqs.length;
   liveOrdCounter = seqs.length;
   ALL_CKS.forEach(k => {
@@ -338,7 +348,7 @@ function resetLiveChecks(){
   LIVE_CKS.forEach(k=>{
     ckState[k]=false;delete ckTimes[k];delete ckOrder[k];
     document.getElementById('ck-'+k)?.classList.remove('on');
-    document.getElementById('ord-'+k).textContent='';
+    document.getElementById('ord-'+k).textContent='—';
     document.getElementById('tim-'+k).textContent='--:--';
     Object.keys(CK_MAP).forEach(g=>{if(CK_MAP[g]===k){delete radios[g];document.querySelectorAll(`.opt[onclick*=",'${g}',"]`).forEach(b=>b.className='opt');}});
   });
@@ -428,7 +438,7 @@ function evalSig(){
 function buildDisc(){for(let i=1;i<=6;i++){const c=document.getElementById('d'+i);if(!c)continue;c.innerHTML='';for(let s=1;s<=3;s++){const el=document.createElement('div');el.className='star'+(s<=discSc[i-1]?' on':'');el.onclick=(function(ii,ss){return function(){discSc[ii-1]=ss;buildDisc();const tot=discSc.reduce((a,b)=>a+b,0);document.getElementById('dtot').textContent=tot+'/18';document.getElementById('dbar').style.width=(tot/18*100)+'%';};})(i,s);c.appendChild(el);}}}
 buildDisc();
 
-async function saveTrade(){if(!dir||(!res && !idxRes)){alert('Select Direction and Result!');return;}const t=buildObj();t.created=new Date().toISOString();try{if(!db)throw new Error("DB not init");const docRef=await getTradesRef().add(t);t.id=docRef.id;trades.push(t);updateStats();renderTable();alert('✅ Trade #'+t.no+' saved!');newTrade();}catch(e){console.error(e);alert("Error saving trade to Firestore");}}
+async function saveTrade(){if(!dir||(!res && !idxRes)){showToast('Select Direction and Result!','error');return;}const t=buildObj();t.created=new Date().toISOString();try{if(!db)throw new Error("DB not init");const docRef=await getTradesRef().add(t);t.id=docRef.id;trades.push(t);sortTrades();updateStats();renderTable();showToast('✅ Trade #'+t.no+' saved!');newTrade();}catch(e){console.error(e);showToast("Error saving trade","error");}}
 function buildObj(){
   const no = document.getElementById('f-no').value || String(trades.length+1).padStart(3,'0');
   const pdcVal = parseFloat(document.getElementById('pdc-val')?.value) || 0;
@@ -437,15 +447,15 @@ function buildObj(){
   const exit = document.getElementById('f-exit').value || '';
   const notes = document.getElementById('f-notes').value;
   const strikeVal = document.getElementById('f-strike').value || '';
-  const pe = parseFloat(document.getElementById('f-prem-entry').value) || 0;
-  const px = parseFloat(document.getElementById('f-prem-exit').value) || 0;
-  const sl = parseFloat(document.getElementById('f-sl').value) || 0;
-  const tp = parseFloat(document.getElementById('f-tp').value) || 0;
+  const pe = parseFloat(document.getElementById('f-prem-entry').value) || NaN;
+  const px = parseFloat(document.getElementById('f-prem-exit').value) || NaN;
+  const sl = parseFloat(document.getElementById('f-sl').value) || NaN;
+  const tp = parseFloat(document.getElementById('f-tp').value) || NaN;
   const q = parseFloat(document.getElementById('f-qty').value) || 1;
-  const ie = parseFloat(document.getElementById('f-idx-entry').value) || 0;
-  const isl = parseFloat(document.getElementById('f-idx-sl').value) || 0;
-  const itg = parseFloat(document.getElementById('f-idx-tl').value) || 0;
-  const ieod = parseFloat(document.getElementById('f-idx-eod').value) || 0;
+  const ie = parseFloat(document.getElementById('f-idx-entry').value) || NaN;
+  const isl = parseFloat(document.getElementById('f-idx-sl').value) || NaN;
+  const itg = parseFloat(document.getElementById('f-idx-tl').value) || NaN;
+  const ieod = parseFloat(document.getElementById('f-idx-eod').value) || NaN;
 
   // Map idxRes to res if res is missing
   let currentRes = res;
@@ -481,9 +491,18 @@ function buildObj(){
 
 function renderTable(){
   const fd=document.getElementById('flt-dir').value,fr=document.getElementById('flt-res').value,fp=document.getElementById('flt-pat').value,fs=document.getElementById('flt-src').value.toLowerCase();
-  let list=[...trades].reverse().filter(t=>{
-    if(fd&&t.dir!==fd)return false;if(fr&&t.res!==fr)return false;
-    if(fp&&t.pat!==fp)return false;if(fs&&!JSON.stringify(t).toLowerCase().includes(fs))return false;return true;
+  let list=[...trades].filter(t=>{
+    let effectiveRes = t.res;
+    if(!effectiveRes || effectiveRes === '—') {
+      if(t.idxRes === 'TL') effectiveRes = 'TP';
+      else if(t.idxRes === 'SL') effectiveRes = 'SL';
+      else if(t.idxRes === 'EOD') effectiveRes = 'EOD';
+    }
+    if(fd&&t.dir!==fd)return false;
+    if(fr&&effectiveRes!==fr)return false;
+    if(fp&&t.pat!==fp)return false;
+    if(fs&&!JSON.stringify(t).toLowerCase().includes(fs))return false;
+    return true;
   });
   const tb=document.getElementById('tlog');
   const btnTgl=document.getElementById('btn-view-toggle');
@@ -551,8 +570,8 @@ function renderTable(){
             ${optPnlHtml}
           </div>
           <div class="tc-disc-wrap">
-            <div class="tc-disc-top"><span>Discipline Score</span> <span style="font-family:'JetBrains Mono',monospace;color:var(--yellow)">${t.disc||0}/30</span></div>
-            <div class="tc-disc-bar"><div class="tc-disc-fill" style="width:${Math.round(((t.disc||0)/30)*100)}%"></div></div>
+            <div class="tc-disc-top"><span>Discipline Score</span> <span style="font-family:'JetBrains Mono',monospace;color:var(--yellow)">${t.disc||0}/18</span></div>
+            <div class="tc-disc-bar"><div class="tc-disc-fill" style="width:${Math.round(((t.disc||0)/18)*100)}%"></div></div>
           </div>
           <div class="tc-actions">
             <button style="background:var(--blue);color:#fff" onclick="viewTrade('${t.id}')">VIEW</button>
@@ -585,7 +604,7 @@ function renderTable(){
       // Determine result for display and stats
       let effectiveRes = t.res;
       if(!effectiveRes || effectiveRes === '—') {
-        if(t.idxRes === 'TL') effectiveRes = 'TP';
+        if(t.idxRes === 'TL' || t.idxRes === 'TP') effectiveRes = 'TP';
         else if(t.idxRes === 'SL') effectiveRes = 'SL';
         else if(t.idxRes === 'EOD') effectiveRes = 'EOD';
       }
@@ -612,7 +631,7 @@ function renderTable(){
       // Simplified Result label for List view
       let resLabel = t.res || '—';
       if(t.idxRes && (!t.res || t.res === '—' || t.res === 'TP' || t.res === 'SL' || t.res === 'EOD')) {
-         resLabel = t.idxRes + ' HIT';
+         resLabel = (t.idxRes === 'TL' ? 'TL' : t.idxRes) + ' HIT';
          if(t.idxRes === 'EOD') resLabel = 'EOD EXIT';
       }
 
@@ -721,7 +740,7 @@ function viewTrade(id){
   ${idxMetric}${optMetric}
   ${met('Entry',t.time||'—','var(--teal)')}${sep}
   ${met('Exit',t.exit||'—','var(--teal)')}${sep}
-  ${met('Disc',(t.disc||0)+'/30','var(--yellow)')}
+  ${met('Disc',(t.disc||0)+'/18','var(--yellow)')}
 </div>
 <div class="mvh-body">
   <div class="mvh-col">
@@ -729,7 +748,7 @@ function viewTrade(id){
     ${tlHtml}
   </div>
   <div class="mvh-col">
-    ${checked.length?`<div class="mvh-sec">✅ Checklist · <span style="color:var(--green)">${checked.length}</span><span style="color:var(--muted)">/${ALL_CKS.length}</span></div><div style="margin-bottom:4px">${checked.map(k=>`<span class="ck-tag">${CK_LABELS[k]||k}</span>`).join('')}</div>`:''}
+    ${checked.length?`<div class="mvh-sec">✅ Checklist · <span style="color:var(--green)">${checked.length}</span><span style="color:var(--muted)">/18</span></div><div style="margin-bottom:4px">${checked.map(k=>`<span class="ck-tag">${CK_LABELS[k]||k}</span>`).join('')}</div>`:''}
     ${psyHtml}
     <div class="mvh-sec">📝 Notes</div>
     <div style="font-size:12px;color:${t.notes?'var(--text)':'var(--muted)'};line-height:1.7;background:var(--dim);padding:10px;border-radius:6px;min-height:50px">${t.notes||'No notes recorded.'}</div>
@@ -787,7 +806,7 @@ function editTrade(id){
   updateCalculations(); window.scrollTo({top:0,behavior:'smooth'});
 }
 
-async function updateTrade(){if(!editId){alert('No trade selected');return;}if(!dir||(!res && !idxRes)){alert('Select Direction and Result!');return;}const idx=trades.findIndex(x=>x.id===editId);if(idx===-1){alert('Trade not found');return;}const u=buildObj();u.created=trades[idx].created;u.updated=new Date().toISOString();try{if(!db)throw new Error("DB not init");await getTradesRef().doc(editId).set(u);u.id=editId;trades[idx]=u;updateStats();renderTable();alert('✅ Trade #'+u.no+' updated!');cancelEdit();}catch(e){console.error(e);alert("Error updating trade");}}
+async function updateTrade(){if(!editId){showToast('No trade selected','error');return;}if(!dir||(!res && !idxRes)){showToast('Select Direction and Result!','error');return;}const idx=trades.findIndex(x=>x.id===editId);if(idx===-1){showToast('Trade not found','error');return;}const u=buildObj();u.created=trades[idx].created;u.updated=new Date().toISOString();try{if(!db)throw new Error("DB not init");await getTradesRef().doc(editId).set(u);u.id=editId;trades[idx]=u;sortTrades();updateStats();renderTable();showToast('✅ Trade #'+u.no+' updated!');cancelEdit();}catch(e){console.error(e);showToast("Error updating trade","error");}}
 function cancelEdit(){editId=null;document.getElementById('btn-save').style.display='flex';document.getElementById('btn-upd').style.display='none';document.getElementById('editBar').classList.remove('show');clearAll();}
 function deleteTrade(id){const t=trades.find(x=>x.id===id);if(!t)return;pendingDel=id;document.getElementById('del-no').textContent='#'+t.no;document.getElementById('delModal').classList.add('open');}
 async function confirmDel(){if(!pendingDel)return;try{if(!db)throw new Error("DB not init");await getTradesRef().doc(pendingDel).delete();trades=trades.filter(x=>x.id!==pendingDel);pendingDel=null;updateStats();renderTable();closeM('delModal');}catch(e){console.error(e);alert("Error deleting trade");}}
@@ -795,13 +814,18 @@ async function clearAllData(){if(!confirm('Delete ALL trades?'))return;try{if(!d
 function closeM(id){document.getElementById(id).classList.remove('open');}
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal-bg'))e.target.classList.remove('open');});
 function updateStats(){
-  if(!trades.length)return;
+  if(!trades.length) {
+    ['s-tot','s-win','s-los','s-wr','s-pnl','s-tod'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent=(id==='s-wr'?'0%':id==='s-pnl'?'+0':id==='s-tod'?'0/0':'0');
+    });
+    return;
+  }
   
   // Create a version of trades with effective result mapping for stats
   const mappedTrades = trades.map(t => {
     let r = t.res;
     if(!r || r === '—') {
-      if(t.idxRes === 'TL') r = 'TP';
+      if(t.idxRes === 'TL' || t.idxRes === 'TP') r = 'TP';
       else if(t.idxRes === 'SL') r = 'SL';
       else if(t.idxRes === 'EOD') r = 'EOD';
     }
@@ -842,7 +866,7 @@ function updateStats(){
     const dt=mappedTrades.filter(t=>t.dir===d);
     const dw=dt.filter(t=>t.effectiveRes==='TP').length;
     const dwr=dt.length>0?Math.round(dw/dt.length*100):0;
-    dh+=sr([d+' ('+dt.length+')',dwr+'% WR',d==='BUY'?'var(--green)':'var(--red)']);
+    dh+=sr([d+' ('+dt.length+')',dwr+'% WR',dwr>=50?'var(--green)':dwr>=30?'var(--orange)':'var(--red)']);
   });
   document.getElementById('st-di').innerHTML=dh;
   
@@ -869,8 +893,44 @@ function updateStats(){
 function setOptType(t){optType=t;const ce=document.getElementById('opt-ce'),pe=document.getElementById('opt-pe');if(ce&&pe){ce.className='opt'+(t==='CE'?' ag':'');pe.className='opt'+(t==='PE'?' ar':'');}}
 function setRes(r){res=r;['r-tp','r-sl','r-eod'].forEach(id=>document.getElementById(id).className='rbtn');document.getElementById(r==='TP'?'r-tp':r==='SL'?'r-sl':'r-eod').className='rbtn '+(r==='TP'?'ag':r==='SL'?'ar':'ao');updateCalculations();updateProceedBtn();}
 
-function newTrade(){clearAll();document.getElementById('f-no').value=String(trades.length+1).padStart(3,'0');document.getElementById('f-time').value=new Date().toTimeString().slice(0,5);}
-function clearAll(){ckState={};radios={};ckTimes={};ckOrder={};liveOrdCounter=0;globalSeq=0;multiLog=[];dir=null;res=null;pat=null;tn=null;idxRes=null;optType=null;psyTags=[];ALL_CKS.forEach(k=>{document.getElementById('ck-'+k)?.classList.remove('on');document.getElementById('ord-'+k).textContent='—';document.getElementById('tim-'+k).textContent='--:--';});document.querySelectorAll('.opt').forEach(b=>b.className='opt');document.getElementById('d-buy').className='dbtn';document.getElementById('d-sell').className='dbtn';const obb=document.getElementById('od-buy'), obs=document.getElementById('od-sell');if(obb) obb.className='dbtn'; if(obs) obs.className='dbtn';['r-tp','r-sl','r-eod'].forEach(id=>document.getElementById(id).className='rbtn');['ir-tl','ir-sl','ir-eod'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='rbtn';});['f-strike','f-sl','f-tp','f-rr','f-pnl','f-notes','f-exit','f-prem-entry','f-prem-exit','f-qty','f-idx-entry','f-idx-sl','f-idx-tl','f-idx-eod','f-idx-rr','f-idx-pnl'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});const rk=document.getElementById('f-risk'),rw=document.getElementById('f-rew');if(rk)rk.textContent='—';if(rw)rw.textContent='—';const pl=document.getElementById('f-pnl');if(pl){pl.value='';pl.style.color='var(--text)';}[0,1,2,3].forEach(i=>document.getElementById('psy-'+i)?.classList.remove('ag'));discSc=[0,0,0,0,0,0];buildDisc();document.getElementById('dtot').textContent='0/18';setSig('wait','Complete checklist to evaluate signal');clearChart();document.getElementById('prg-fill').style.width='0%';document.getElementById('prg-txt').textContent='0 / '+TOTAL_STEPS;document.getElementById('timeline').classList.remove('show');document.getElementById('tl-items').innerHTML='';updateProceedBtn();}
+function newTrade(){
+  clearAll();
+  const next = trades.length ? Math.max(...trades.map(t=>parseInt(t.no)||0)) + 1 : 1;
+  document.getElementById('f-no').value=String(next).padStart(3,'0');
+  document.getElementById('f-time').value=new Date().toTimeString().slice(0,5);
+}
+function clearAll(){
+  editId=null;
+  ckState={};radios={};ckTimes={};ckOrder={};liveOrdCounter=0;globalSeq=0;multiLog=[];dir=null;res=null;pat=null;tn=null;idxRes=null;optType=null;psyTags=[];
+  document.getElementById('btn-save').style.display='flex';
+  document.getElementById('btn-upd').style.display='none';
+  document.getElementById('editBar').classList.remove('show');
+  ALL_CKS.forEach(k=>{document.getElementById('ck-'+k)?.classList.remove('on');document.getElementById('ord-'+k).textContent='—';document.getElementById('tim-'+k).textContent='--:--';});
+  document.querySelectorAll('.opt').forEach(b=>b.className='opt');
+  document.getElementById('d-buy').className='dbtn';
+  document.getElementById('d-sell').className='dbtn';
+  const obb=document.getElementById('od-buy'), obs=document.getElementById('od-sell');
+  if(obb) obb.className='dbtn'; if(obs) obs.className='dbtn';
+  ['r-tp','r-sl','r-eod'].forEach(id=>document.getElementById(id).className='rbtn');
+  ['ir-tl','ir-sl','ir-eod'].forEach(id=>{const el=document.getElementById(id);if(el)el.className='rbtn';});
+  ['f-strike','f-sl','f-tp','f-rr','f-pnl','f-notes','f-exit','f-prem-entry','f-prem-exit','f-qty','f-idx-entry','f-idx-sl','f-idx-tl','f-idx-eod','f-idx-rr','f-idx-pnl'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const rk=document.getElementById('f-risk'),rw=document.getElementById('f-rew');
+  if(rk)rk.textContent='—';if(rw)rw.textContent='—';
+  const pl=document.getElementById('f-pnl');
+  if(pl){pl.value='';pl.style.color='var(--text)';}
+  [0,1,2,3].forEach(i=>document.getElementById('psy-'+i)?.classList.remove('ag'));
+  discSc=[0,0,0,0,0,0];
+  buildDisc();
+  document.getElementById('dtot').textContent='0/18';
+  document.getElementById('dbar').style.width='0%';
+  setSig('wait','Complete checklist to evaluate signal');
+  clearChart();
+  document.getElementById('prg-fill').style.width='0%';
+  document.getElementById('prg-txt').textContent='0 / '+TOTAL_STEPS;
+  document.getElementById('timeline').classList.remove('show');
+  document.getElementById('tl-items').innerHTML='';
+  updateProceedBtn();
+}
 let chartDataIdx=null,chartDataStr=null;
 function loadChart(e,id){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>showChart(ev.target.result,id);r.readAsDataURL(f);}
 function dropChart(e,id){e.preventDefault();const f=e.dataTransfer.files[0];if(!f||!f.type.startsWith('image/'))return;const r=new FileReader();r.onload=ev=>showChart(ev.target.result,id);r.readAsDataURL(f);}
@@ -907,9 +967,9 @@ function togglePsy(i){
 
 function setIdxRes(r){
   idxRes=r;
-  document.getElementById('ir-tl').className='rbtn'+(r==='TL'?' tp':'');
-  document.getElementById('ir-sl').className='rbtn'+(r==='SL'?' sl':'');
-  document.getElementById('ir-eod').className='rbtn'+(r==='EOD'?' eod':'');
+  document.getElementById('ir-tl').className='rbtn'+(r==='TL'?' ag':'');
+  document.getElementById('ir-sl').className='rbtn'+(r==='SL'?' ar':'');
+  document.getElementById('ir-eod').className='rbtn'+(r==='EOD'?' ao':'');
   updateCalculations();
 }
 

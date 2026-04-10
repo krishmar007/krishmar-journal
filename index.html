@@ -32,6 +32,7 @@
   <div class="flex flex-col items-center lg:items-start">
     <div class="logo text-xl font-extrabold tracking-tighter">KRISH<span class="text-indigo-500">MAR</span></div>
     <div class="text-[9px] text-gray-500 dark:text-gray-400 font-bold tracking-[0.2em] uppercase opacity-70">TRADING JOURNAL · NIFTY 50</div>
+    <a href="obs.html" class="mt-2 text-[10px] bg-indigo-500/10 text-indigo-500 px-2 py-1 rounded font-bold hover:bg-indigo-500 hover:text-white transition-all tracking-widest">OBS MODE</a>
   </div>
 
   <div class="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 lg:gap-10 w-full lg:w-auto">
@@ -319,6 +320,8 @@
 <div class="modal-bg" id="delModal"><div class="modal" style="max-width:380px"><h2>🗑 Delete Trade?</h2><p style="font-size:13px;color:var(--muted);margin:12px 0">Trade <strong id="del-no" style="color:var(--white)"></strong> will be permanently deleted.</p><div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn-del" onclick="confirmDel()" style="flex:1">DELETE</button><button class="btn btn-clr" onclick="closeM('delModal')" style="flex:1">CANCEL</button></div></div></div>
 
 </div> <!-- END mainApp -->
+
+<div id="toast-container" class="toast-container"></div>
 
 <script src="script.js"></script>
 </body>

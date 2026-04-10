@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OBS - Option Backtest System</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; background-color: #0f1115; color: #e2e8f0; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+  .btn-primary { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); transition: all 0.3s ease; }
+  .btn-primary:hover { box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); transform: translateY(-1px); }
+  @keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+    70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  }
+  .animate-pulse-green {
+    animation: pulse-green 2s infinite;
+  }
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-[#0f1115] text-gray-100 font-sans selection:bg-indigo-500/30 selection:text-white min-h-screen p-4 md:p-8">
+
+<!-- Auth removed: direct access enabled -->
+
+<div id="obsApp" class="max-w-7xl mx-auto space-y-8">
+  
+  <!-- Header -->
+  <header class="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-white/5 pb-6">
+    <div class="flex items-center gap-4">
+      <div class="text-2xl font-black tracking-tighter">KRISH<span class="text-indigo-500">MAR</span> <span class="bg-indigo-500/10 text-indigo-500 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ml-2 border border-indigo-500/20">OBS Mode</span></div>
+    </div>
+    <a href="index.html" class="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-6 py-2 rounded-full text-xs font-bold transition-all group">
+      <span class="text-gray-500 group-hover:text-white">←</span> BACK TO LIVE
+    </a>
+  </header>
+
+  <!-- Dashboard Grid -->
+  <main class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    
+    <!-- Column 1: Interactive Checklist -->
+    <section class="space-y-6">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="flex items-center gap-3">
+            <div class="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
+            <h2 class="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Interactive Checklist</h2>
+        </div>
+      </div>      <!-- Global Index Context (Reference Only) -->
+      <div class="bg-gray-900/30 rounded-xl p-4 border border-white/5 space-y-3 mb-6">
+          <div class="flex items-center gap-2 mb-2">
+              <div class="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+              <h3 class="text-[9px] font-black text-gray-400 uppercase tracking-widest">Market Sentiment</h3>
+          </div>
+          <div class="flex gap-2">
+              <button id="btn-index-green" onclick="toggleCheck('index_trend', 'btn-index-green', 'green', 'green')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">INDEX GREEN</button>
+              <button id="btn-index-red" onclick="toggleCheck('index_trend', 'btn-index-red', 'red', 'red')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">INDEX RED</button>
+          </div>
+      </div>
+
+      <!-- Setup Selector -->
+      <div class="bg-gray-900/50 p-1.5 rounded-xl border border-white/5 flex gap-1 mb-4">
+        <button onclick="switchSetup(1)" id="setup-btn-1" class="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all bg-indigo-500 text-white">Setup 1: Sync (1:2)</button>
+        <button onclick="switchSetup(2)" id="setup-btn-2" class="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all text-gray-500 hover:text-white hover:bg-white/5">Setup 2: Trap (1:3)</button>
+      </div>
+
+      <!-- Setup 1: SP Cross Sync (5-Step Interactive) -->
+      <div id="checklist-setup-1" class="space-y-3">
+          <!-- Step 01 -->
+          <div id="step-card-1" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">01</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">SP Cross Sync</h3>
+              </div>
+              <div class="flex gap-2">
+                  <button id="btn-sp-ce" onclick="toggleCheck('sp_ce', 'btn-sp-ce', 'green')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">CE CROSSED</button>
+                  <button id="btn-sp-pe" onclick="toggleCheck('sp_pe', 'btn-sp-pe', 'green')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">PE CROSSED</button>
+              </div>
+          </div>
+
+          <!-- Step 02 -->
+          <div id="step-card-2" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">02</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">CE FL Line</h3>
+              </div>
+              <div class="flex gap-2">
+                  <button id="btn-ce-tap" onclick="toggleCheck('ce_fl', 'btn-ce-tap', 'yellow', 'tap')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">TAP</button>
+                  <button id="btn-ce-break" onclick="toggleCheck('ce_fl', 'btn-ce-break', 'blue', 'break')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">BREAK</button>
+              </div>
+          </div>
+
+          <!-- Step 03 -->
+          <div id="step-card-3" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">03</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">PE FL Line</h3>
+              </div>
+              <div class="flex gap-2">
+                  <button id="btn-pe-tap" onclick="toggleCheck('pe_fl', 'btn-pe-tap', 'yellow', 'tap')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">TAP</button>
+                  <button id="btn-pe-break" onclick="toggleCheck('pe_fl', 'btn-pe-break', 'blue', 'break')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">BREAK</button>
+              </div>
+          </div>
+
+          <!-- Step 04 -->
+          <div id="step-card-4" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">04</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">CE Candle Close</h3>
+              </div>
+              <button id="btn-ce-close" onclick="toggleCheck('ce_close', 'btn-ce-close', 'green')" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">CONFIRM CLOSE</button>
+          </div>
+
+          <!-- Step 05 -->
+          <div id="step-card-5" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">05</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">PE Candle Close</h3>
+              </div>
+              <button id="btn-pe-close" onclick="toggleCheck('pe_close', 'btn-pe-close', 'green')" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">CONFIRM CLOSE</button>
+          </div>
+      </div>
+
+      <!-- Setup 2: Trap Reversal (4-Step Interactive) -->
+      <div id="checklist-setup-2" class="space-y-3 hidden">
+          <!-- Step 01 -->
+          <div id="s2-card-1" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">01</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">SP Sweep</h3>
+              </div>
+              <div class="flex gap-2">
+                  <button id="btn-s2-sweep-ce" onclick="toggleCheck('s2_sweep_ce', 'btn-s2-sweep-ce', 'green')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">CE SWEEP</button>
+                  <button id="btn-s2-sweep-pe" onclick="toggleCheck('s2_sweep_pe', 'btn-s2-sweep-pe', 'green')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">PE SWEEP</button>
+              </div>
+          </div>
+
+          <!-- Step 02 -->
+          <div id="s2-card-2" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">02</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">FL Broken & Close</h3>
+              </div>
+              <div class="flex gap-2">
+                  <button id="btn-s2-break-ce" onclick="toggleCheck('s2_break_ce', 'btn-s2-break-ce', 'blue')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">CE BREAK</button>
+                  <button id="btn-s2-break-pe" onclick="toggleCheck('s2_break_pe', 'btn-s2-break-pe', 'blue')" class="flex-1 bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">PE BREAK</button>
+              </div>
+          </div>
+
+          <!-- Step 03 -->
+          <div id="s2-card-3" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">03</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">Check Divergence</h3>
+              </div>
+              <button id="btn-s2-div" onclick="toggleCheck('s2_div', 'btn-s2-div', 'green')" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all">CONFIRM SETUP</button>
+          </div>
+
+          <!-- Step 04 -->
+          <div id="s2-card-4" class="bg-[#1e2330] rounded-lg p-4 border border-white/5 hover:border-indigo-500/30 transition-all duration-300 opacity-40 pointer-events-none grayscale">
+              <div class="flex items-center gap-3 mb-3">
+                  <span class="text-[10px] font-bold text-indigo-400 bg-indigo-900/30 px-2.5 py-1 rounded">04</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-widest">Execution</h3>
+              </div>
+              <button id="btn-s2-exec" onclick="toggleCheck('s2_exec', 'btn-s2-exec', 'green')" class="w-full bg-gray-700 hover:bg-gray-600 text-gray-300 text-[10px] font-bold py-2 rounded transition-all italic tracking-widest">ENTER 1:3 RR</button>
+          </div>
+      </div>
+      
+    </section>
+
+    <!-- Column 2: Trade Entry Form -->
+    <section class="glass p-8 rounded-3xl border border-white/10 space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-green-500/80">Backtest Entry Form</h2>
+      </div>
+      
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Trade Date</label>
+                <input type="date" id="date" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 transition-all">
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Direction</label>
+                <select id="direction" onchange="updateRR()" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 transition-all appearance-none">
+                    <option value="BUY">▲ BUY SIDE</option>
+                    <option value="SELL">▼ SELL SIDE</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Entry Time</label>
+                <input type="time" id="entryTime" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 transition-all">
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Exit Time</label>
+                <input type="time" id="exitTime" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-xs focus:outline-none focus:border-indigo-500 transition-all">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1 text-indigo-400">Entry Price</label>
+                <input type="number" id="entry" oninput="updateRR()" placeholder="0.00" step="0.05" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 transition-all">
+            </div>
+            <div class="space-y-1.5">
+                <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1 text-red-400">Stop Loss</label>
+                <input type="number" id="sl" oninput="updateRR()" placeholder="0.00" step="0.05" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-xs font-bold focus:outline-none focus:border-indigo-500 transition-all">
+            </div>
+        </div>
+
+        <div class="pt-2">
+            <div class="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-6 space-y-4">
+                <div class="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-indigo-400/80">
+                    <span id="rr-label">Fixed 1:2 Reward</span>
+                    <span class="bg-indigo-500 text-white px-2 py-0.5 rounded">AUTO-CALC</span>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Target Price</label>
+                        <input type="text" id="target" readonly class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-green-400 font-black text-sm" value="0.00">
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[9px] font-bold text-gray-400 uppercase tracking-widest ml-1">Resulting P&L</label>
+                        <input type="text" id="pnl" readonly class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-2 text-gray-400 font-black text-sm" value="0.00">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-1.5">
+            <label class="text-[9px] font-bold text-gray-500 uppercase tracking-widest ml-1">Backtest Outcome</label>
+            <select id="result" onchange="updateRR()" class="w-full bg-gray-900 border border-white/10 rounded-lg px-4 py-3 font-bold text-xs focus:outline-none focus:border-indigo-500 transition-all">
+                <option value="TP" class="text-green-500">🎯 TARGET HIT (1:2)</option>
+                <option value="SL" class="text-red-500">❌ STOP LOSS HIT</option>
+            </select>
+        </div>
+
+        <div id="original-save-container" class="hidden">
+            <button onclick="saveObsTrade()" class="w-full btn-primary py-4 rounded-xl font-extrabold text-sm tracking-[0.2em] uppercase shadow-lg">Save Backtest Record</button>
+        </div>
+
+        <div id="final-cta" class="space-y-3">
+            <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden w-full bg-red-900/40 text-red-400 py-3 rounded-xl font-bold text-xs uppercase tracking-widest border border-red-500/20 hover:bg-red-900/60 transition-all">Cancel Editing</button>
+            <button id="btn-final-save" disabled onclick="saveObsTrade()" class="w-full bg-green-600 py-6 rounded-xl font-black text-lg tracking-[0.2em] uppercase transition-all flex items-center justify-center gap-3 opacity-40 grayscale cursor-not-allowed">
+                <span class="text-2xl">🟢</span> PROCEED TO ENTRY
+            </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: Screenshot Upload -->
+    <section class="space-y-6">
+      <div class="flex items-center gap-3">
+        <div class="w-2 h-2 rounded-full bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]"></div>
+        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Context Visuals</h2>
+      </div>
+
+      <div class="bg-gray-900/50 border-2 border-dashed border-white/5 rounded-3xl h-[530px] flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFile(event)">
+        <img id="chart-img" class="absolute inset-0 w-full h-full object-cover hidden transition-transform duration-700 group-hover:scale-105">
+        <div id="chart-ph" class="flex flex-col items-center gap-4 text-center p-8">
+            <div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/10 mb-2">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-white mb-1">Upload TradingView Clip</p>
+                <p class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Click to browse or Paste (Ctrl+V)</p>
+            </div>
+        </div>
+        <div class="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md border border-white/10 p-4 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity">
+            <p class="text-[9px] font-bold text-indigo-300 uppercase tracking-widest text-center">Backtest isolation enabled for obs_trades</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <section class="mt-10">
+    <div class="flex items-center justify-between gap-3 mb-5">
+      <div class="flex items-center gap-3">
+        <div class="w-2 h-2 rounded-full bg-indigo-300 shadow-[0_0_8px_rgba(165,180,252,0.5)]"></div>
+        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-gray-400">Recent Backtests</h2>
+      </div>
+      <span id="obs-trade-count" class="text-[9px] font-black text-gray-600 uppercase tracking-widest font-mono"></span>
+    </div>
+    <div id="obsLog" class="w-full">
+      <div class="text-center py-10 text-gray-600 text-[10px] uppercase font-bold tracking-widest">No trades recorded in collection</div>
+    </div>
+  </section>
+
+</div>
+
+<div id="tradeModal" class="hidden fixed inset-0 z-[200] bg-[#0f1115]/95 backdrop-blur-xl flex items-center justify-center p-4">
+    <div class="bg-[#1e2330] w-full max-w-4xl max-h-[90vh] rounded-3xl border border-white/10 shadow-2xl flex flex-col overflow-hidden transform scale-95 transition-all duration-300" id="modalContent">
+        <!-- Modal Header -->
+        <div class="p-6 border-b border-white/5 flex justify-between items-center bg-gray-900/30">
+            <div>
+                <h3 id="modalSetup" class="text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-1">SETUP TYPE</h3>
+                <p id="modalDate" class="text-white text-sm font-bold opacity-80">Date: ---</p>
+            </div>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-white transition-colors">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scroll">
+            <!-- Large Image -->
+            <div class="relative group rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                <img id="modalImg" src="" class="w-full h-auto object-contain">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Stats Grid -->
+                <div class="space-y-4">
+                    <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Trade Statistics</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-900/50 p-4 rounded-2xl border border-white/5 col-span-2">
+                             <span class="text-[9px] font-bold text-gray-400 uppercase block mb-1">Time Context</span>
+                             <span id="modalTime" class="text-sm font-black text-white italic">00:00 - 00:00</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-2xl border border-white/5">
+                            <span class="text-[9px] font-bold text-indigo-400/60 uppercase block mb-1">Entry</span>
+                            <span id="modalEntry" class="text-xl font-black text-white">0.00</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-2xl border border-white/5">
+                            <span class="text-[9px] font-bold text-red-400/60 uppercase block mb-1">Stop Loss</span>
+                            <span id="modalSL" class="text-xl font-black text-white">0.00</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-2xl border border-white/5">
+                            <span class="text-[9px] font-bold text-green-400/60 uppercase block mb-1">Target</span>
+                            <span id="modalTarget" class="text-xl font-black text-white">0.00</span>
+                        </div>
+                        <div class="bg-gray-900/50 p-4 rounded-2xl border border-white/5">
+                            <span class="text-[9px] font-bold text-yellow-400/60 uppercase block mb-1">Final P&L</span>
+                            <span id="modalPNL" class="text-xl font-black text-white">0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Checklist Summary -->
+                <div class="space-y-4">
+                    <h4 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">Logic Adherence</h4>
+                    <div id="modalChecklist" class="flex flex-wrap gap-2">
+                        <!-- Dynamic Tags -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-6 border-t border-white/5 flex justify-end gap-3 bg-gray-900/20">
+            <button id="modal-edit-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">Edit Record</button>
+            <button onclick="closeModal()" class="bg-white/5 hover:bg-white/10 text-white px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all">Close Review</button>
+        </div>
+    </div>
+</div>
+
+<script src="obs.js"></script>
+</body>
+</html>
